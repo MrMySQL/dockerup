@@ -74,12 +74,12 @@ else
 fi
 
 # Set own domain
+DOMAIN="$TICKET_NUMBER.$CONTAINERS_DOMAIN_SUFFIX"
 if [ "`grep $IP_ADDRESS /etc/hosts`" != "" ]
 then
     log "IP address $IP_ADDRESS already has domain in the /etc/hosts file."
 else
     log "Relation between IP $IP_ADDRESS and domain $DOMAIN was added into /etc/hosts file."
-    DOMAIN="$TICKET_NUMBER.$CONTAINERS_DOMAIN_SUFFIX"
     sudo sh -c "echo '$IP_ADDRESS     $DOMAIN' >> /etc/hosts"
 fi
 
@@ -87,7 +87,15 @@ M2_DUMPS_DEPLOYED=0
 
 if [ "$MAGENTO_VERSION" = "m2" ] && [ "`ssh $TICKET_NUMBER php /var/www/html/bin/magento -V | grep 'version'`" != "" ]
 then
-    log "Magento 2 is already installed, so installation will be skipped!"
+    log "Magento 2 is already installed, so installation will be skipped! Just updating DB configurations."
+
+    log "Creating .m2install.conf file..."
+    cp "$BASE_DIR/template/.m2install.conf" "$CONTAINER_PATH/.m2install.conf"
+    sed -i '' s/%domain%/"$DOMAIN"/g $CONTAINER_PATH/.m2install.conf;
+    scp $CONTAINER_PATH/.m2install.conf $TICKET_NUMBER:/var/www/html
+    log "Created!"
+
+    ssh $TICKET_NUMBER "cd /var/www/html; m2install.sh --step configure_db -f && rm -rf /var/www/html/var/cache/ /var/www/html/var/page_cache/"
     M2_DUMPS_DEPLOYED=1
 fi
 
